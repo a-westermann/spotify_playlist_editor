@@ -57,23 +57,36 @@ class Gui:
         label.pack()
         self.spotify_data.compile_data(self.user_access_token)
         label.destroy()
-        columns = 'Artist', 'Name', 'ID', 'Delete'
+        columns = 'Artist', 'Name', 'Delete'
         tree = ttk.Treeview(self.gui, columns=columns, show='headings')
         for col in columns:
             tree.heading(col, text=col)
-            tree.column(col, width=50 if col == 'Delete' else 100, anchor='left')
-
-        self.checkbox_states = {}
-
-        for i, song in enumerate(self.spotify_data.get_songs_to_drop(0.1)):
-            checkbox_var = BooleanVar(value=False)
-            self.checkbox_states[song.id] = checkbox_var
-            tree.insert('', 'end', values=('', song.artist, song.name, song.id))
-            checkbox = ttk.Checkbutton(self.gui, variable=checkbox_var)
-            tree_window = tree.bbox(i, column=0)
-            tree.create_window(tree_window[0], tree_window[1], window=checkbox)
-
+            if col == 'Delete':
+                tree.column(col, width=50, anchor='center')
+            else:
+                tree.column(col, width=100, anchor='w')
         scrollbar = ttk.Scrollbar(self.gui, orient='vertical', command=tree.yview)
         tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
         tree.pack(expand=True, fill='both')
+
+        for i, song in enumerate(self.spotify_data.get_songs_to_drop(0.1)):
+            item_id = tree.insert('', 'end', values=(song.artist, song.name, 'Y'))
+
+        self.preserve_rows = set()
+
+        def toggle_row_selection(event):
+            clicked_item = tree.identify_row(event.y)  # Get the row under the cursor
+            if not clicked_item:
+                return
+            if clicked_item in self.preserve_rows:
+                self.preserve_rows.remove(clicked_item)
+                tree.item(clicked_item, values=(*tree.item(clicked_item, 'values')[:2], ''), tags=('delete',))
+                tree.selection_set(clicked_item)  # Highlight row immediately
+            else:
+                self.preserve_rows.add(clicked_item)
+                tree.item(clicked_item, values=(*tree.item(clicked_item, 'values')[:2], 'Y'), tags=())
+            tree.tag_configure('delete', background='#34495E')
+
+        tree.bind('<Button-1>', toggle_row_selection)
+
